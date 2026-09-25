@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Podium — Practice</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0D0E12">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0D0E12;
+    --surface: #17181D;
+    --surface-hi: #1F212A;
+    --accent: #FF5A3C;
+    --accent-dim: #2A1712;
+    --secondary: #7C9CFF;
+    --secondary-dim: #171B2A;
+    --good: #4ADE80;
+    --text: #F2F0EA;
+    --text-dim: #8B8D98;
+    --line: #26272F;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { height:100%; }
+  body {
+    margin:0; background: var(--bg); color: var(--text);
+    font-family:'Inter', sans-serif;
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 20px 32px; border-bottom: 1px solid var(--line);
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  }
+  .brand { font-family:'Archivo', sans-serif; font-weight:800; font-size:19px; }
+  .brand span { color: var(--accent); }
+  nav { display:flex; gap:24px; }
+  nav a { color: var(--text-dim); text-decoration:none; font-size:14px; font-weight:500; cursor:pointer; }
+  nav a.active { color: var(--text); }
+
+  main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 32px 20px; width:100%; }
+  .screen { width:100%; max-width: 760px; display:none; flex-direction:column; align-items:center; text-align:center; }
+  .screen.active { display:flex; }
+
+  /* --- Mode switcher --- */
+  .mode-switch { display:flex; gap:6px; background: var(--surface); border:1px solid var(--line); border-radius:100px; padding:4px; margin-bottom:28px; }
+  .mode-switch button { border:none; background:transparent; color: var(--text-dim); font-family:inherit; font-size:13px; font-weight:600; padding:8px 16px; border-radius:100px; cursor:pointer; }
+  .mode-switch button.active { background: var(--surface-hi); color: var(--text); }
+  .mode-switch button.active.pitch-active { color: var(--secondary); }
+
+  /* --- Intro / topic screen --- */
+  .mode-tag { font-size:13px; color: var(--secondary); font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .mode-tag::before { content:""; width:6px; height:6px; border-radius:50%; background: var(--secondary); }
+  .prompt-label { font-size:14px; color: var(--text-dim); margin-bottom:10px; font-weight:500; }
+  h1 { font-family:'Archivo', sans-serif; font-weight:700; font-size: clamp(26px, 4.2vw, 42px); line-height:1.15; letter-spacing:-0.015em; max-width: 680px; margin: 0 0 40px 0; }
+
+  .stage { position:relative; display:flex; flex-direction:column; align-items:center; gap:20px; }
+  .rec-btn {
+    position:relative; width:120px; height:120px; border-radius:50%;
+    background: var(--accent); border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition: transform 0.15s ease;
+  }
+  .rec-btn:hover { transform: scale(1.03); }
+  .rec-btn:active { transform: scale(0.97); }
+  .rec-btn.idle { animation: pulse 2.4s ease-out infinite; }
+  .rec-btn .icon-square { width:32px; height:32px; background: var(--bg); border-radius:8px; }
+  .rec-btn.recording .icon-square { border-radius:4px; background: var(--bg); }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,90,60,0.45); }
+    70%  { box-shadow: 0 0 0 26px rgba(255,90,60,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,90,60,0); }
+  }
+  .rec-hint { font-size:14px; color: var(--text-dim); font-weight:500; }
+  .timer { font-family:'Archivo', sans-serif; font-weight:700; font-size:22px; font-variant-numeric: tabular-nums; display:none; }
+  .timer.show { display:block; }
+
+  .bars { display:flex; align-items:center; gap:4px; height:28px; }
+  .bars span { width:3px; border-radius:2px; background: var(--secondary); height:6px; transition: height 0.08s ease; }
+
+  .interject-banner {
+    display:none; align-items:center; gap:10px; background: var(--secondary-dim);
+    border:1px solid var(--secondary); color: var(--secondary); font-weight:600; font-size:14px;
+    padding:12px 18px; border-radius:12px; max-width:520px; margin-top:4px;
+  }
+  .interject-banner.show { display:flex; }
+  .interject-banner .dot { width:8px; height:8px; border-radius:50%; background: var(--secondary); flex-shrink:0; animation: blink 1s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+  .interject-count { font-size:12px; color: var(--text-dim); }
+
+  footer.pills { display:flex; justify-content:center; gap:12px; padding: 24px 32px calc(32px + env(safe-area-inset-bottom, 0px)); flex-wrap:wrap; }
+  .pill { display:flex; align-items:center; gap:8px; padding: 9px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 100px; font-size:13px; color: var(--text-dim); font-weight:500; }
+  .pill b { color: var(--text); font-weight:600; }
+  .pill.btn { cursor:pointer; }
+  .pill.btn:hover { background: var(--surface-hi); }
+
+  /* --- Processing screen --- */
+  .spinner { width:44px; height:44px; border-radius:50%; border: 3px solid var(--line); border-top-color: var(--secondary); animation: spin 0.9s linear infinite; margin-bottom: 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-text { font-size:15px; color: var(--text-dim); }
+
+  /* --- Feedback screen --- */
+  .fb-wrap { width:100%; max-width: 720px; text-align:left; }
+  .fb-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+  .fb-title { font-family:'Archivo', sans-serif; font-weight:700; font-size:24px; }
+  audio { width:100%; margin-bottom:20px; border-radius:10px; }
+  .transcript-box { background: var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:24px; font-size:14px; line-height:1.7; color: var(--text-dim); max-height:220px; overflow-y:auto; }
+  .transcript-box .label { color: var(--text); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px; display:block; }
+  .transcript-box .interjection-line { color: var(--secondary); font-weight:600; display:block; margin: 8px 0 4px; }
+  .stats-row { display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+  .stat { flex:1; min-width:110px; background: var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat .num { font-family:'Archivo', sans-serif; font-weight:700; font-size:22px; }
+  .stat .lbl { font-size:12px; color: var(--text-dim); margin-top:2px; }
+  .fb-section { margin-bottom:20px; }
+  .fb-section h3 { font-size:13px; text-transform:uppercase; letter-spacing:0.04em; margin: 0 0 10px 0; display:flex; align-items:center; gap:8px; }
+  .fb-section.good h3 { color: var(--good); }
+  .fb-section.improve h3 { color: var(--accent); }
+  .fb-section ul { margin:0; padding-left:18px; }
+  .fb-section li { margin-bottom:8px; font-size:14px; line-height:1.55; color: var(--text); }
+  .fb-body { font-size:14px; line-height:1.7; color: var(--text); white-space:pre-wrap; }
+  .actions-row { display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; }
+  .btn { padding: 11px 20px; border-radius:10px; border:1px solid var(--line); background: var(--surface); color: var(--text); font-weight:600; font-size:14px; cursor:pointer; font-family:inherit; }
+  .btn:hover { background: var(--surface-hi); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a0b06; }
+  .btn.primary:hover { opacity:0.92; }
+
+  .error-box { background: var(--accent-dim); border:1px solid var(--accent); border-radius:12px; padding:16px 18px; font-size:14px; margin-bottom:20px; text-align:left; }
+
+  /* --- History screen --- */
+  .hist-wrap { width:100%; max-width: 720px; text-align:left; }
+  .hist-title { font-family:'Archivo', sans-serif; font-weight:700; font-size:24px; margin-bottom:20px; display:flex; align-items:center; gap:12px; }
+  .hist-empty { color: var(--text-dim); font-size:14px; padding: 40px 0; text-align:center; }
+  .hist-item { background: var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:12px; cursor:pointer; transition: background 0.15s ease; }
+  .hist-item:hover { background: var(--surface-hi); }
+  .hist-item-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:6px; }
+  .hist-item-topic { font-weight:600; font-size:15px; flex:1; }
+  .hist-item-date { font-size:12px; color: var(--text-dim); white-space:nowrap; }
+  .hist-item-meta { display:flex; gap:14px; font-size:12px; color: var(--text-dim); align-items:center; }
+  .hist-item-meta b { color: var(--secondary); font-weight:600; }
+  .mode-chip { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; padding:2px 8px; border-radius:100px; }
+  .mode-chip.speaking { background: var(--secondary-dim); color: var(--secondary); }
+  .mode-chip.pitch { background: var(--accent-dim); color: var(--accent); }
+  .back-link { font-size:13px; color: var(--text-dim); cursor:pointer; margin-bottom:18px; display:inline-block; }
+  .back-link:hover { color: var(--text); }
+
+  /* --- Principles screen --- */
+  .princ-wrap { width:100%; max-width: 720px; text-align:left; }
+  .princ-title { font-family:'Archivo', sans-serif; font-weight:700; font-size:24px; margin-bottom:8px; }
+  .princ-sub { color: var(--text-dim); font-size:14px; margin-bottom:28px; }
+  .princ-card { background: var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:14px; }
+  .princ-card h3 { margin:0 0 8px 0; font-size:15px; color: var(--secondary); }
+  .princ-card p { margin:0; font-size:14px; line-height:1.65; color: var(--text); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rec-btn, .spinner, .interject-banner .dot { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">podium<span>.</span></div>
+  <nav>
+    <a class="active" id="nav-practice">Practice</a>
+    <a id="nav-history">History</a>
+    <a id="nav-principles">Principles</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- INTRO / TOPIC SCREEN -->
+  <div class="screen active" id="screen-intro">
+    <div class="mode-switch">
+      <button id="mode-btn-speaking" class="active">Public Speaking</button>
+      <button id="mode-btn-pitch">Business Pitch</button>
+    </div>
+
+    <div class="mode-tag" id="mode-tag-text">Public speaking · Random topic</div>
+    <div class="prompt-label" id="prompt-label-text">Your topic</div>
+    <h1 id="topic-text">Loading topic…</h1>
+
+    <div class="stage">
+      <button class="rec-btn idle" id="rec-btn" aria-label="Start recording">
+        <div class="icon-square"></div>
+      </button>
+      <div class="rec-hint" id="rec-hint">Take a moment. Press when you're ready.</div>
+      <div class="timer" id="timer">00:00</div>
+      <div class="bars" id="bars">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="interject-banner" id="interject-banner">
+        <div class="dot"></div>
+        <div id="interject-text">—</div>
+      </div>
+      <div class="interject-count" id="interject-count"></div>
+    </div>
+  </div>
+
+  <!-- PROCESSING SCREEN -->
+  <div class="screen" id="screen-processing">
+    <div class="spinner"></div>
+    <div class="processing-text" id="processing-text">Transcribing your recording…</div>
+  </div>
+
+  <!-- FEEDBACK SCREEN -->
+  <div class="screen" id="screen-feedback">
+    <div class="fb-wrap">
+      <div class="fb-header">
+        <div class="fb-title">Your feedback</div>
+      </div>
+      <audio id="playback" controls></audio>
+      <div class="stats-row" id="stats-row"></div>
+      <div class="transcript-box">
+        <span class="label">Transcript</span>
+        <div id="transcript-out">—</div>
+      </div>
+      <div id="feedback-out"></div>
+      <div class="actions-row">
+        <button class="btn primary" id="btn-again">New topic</button>
+        <button class="btn" id="btn-download">Download audio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY SCREEN -->
+  <div class="screen" id="screen-history">
+    <div class="hist-wrap">
+      <div class="hist-title">Session history</div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY DETAIL SCREEN -->
+  <div class="screen" id="screen-history-detail">
+    <div class="fb-wrap">
+      <span class="back-link" id="back-to-history">← Back to history</span>
+      <div class="fb-header">
+        <div class="fb-title" id="detail-topic">Session</div>
+      </div>
+      <div class="stats-row" id="detail-stats-row"></div>
+      <div class="transcript-box">
+        <span class="label">Transcript</span>
+        <div id="detail-transcript-out">—</div>
+      </div>
+      <div id="detail-feedback-out"></div>
+    </div>
+  </div>
+
+  <!-- PRINCIPLES SCREEN -->
+  <div class="screen" id="screen-principles">
+    <div class="princ-wrap">
+      <div class="princ-title">The framework behind your feedback</div>
+      <div class="princ-sub">Every piece of feedback you get is grounded in one of these principles — not just opinion.</div>
+      <div class="princ-card"><h3>Filler words</h3><p>Words like "um," "uh," "like," and "so" are natural in conversation, but in short bursts they signal hesitation to an audience. Reducing filler density — not eliminating it entirely — is what moves the needle on how confident you sound.</p></div>
+      <div class="princ-card"><h3>Pacing (words per minute)</h3><p>Most confident, comprehensible speech lands around 120–160 words per minute. Faster often reads as nervous energy; much slower can lose an audience's attention.</p></div>
+      <div class="princ-card"><h3>Structure</h3><p>A speech with a clear opening hook, a logical throughline, and a real conclusion is dramatically more memorable than one that rambles or trails off.</p></div>
+      <div class="princ-card"><h3>Concrete examples over abstraction</h3><p>Specific stories, numbers, and examples are more persuasive and memorable than abstract claims.</p></div>
+      <div class="princ-card"><h3>Confidence markers vs. hedging</h3><p>Phrases like "I think maybe," "sort of," and "I guess" quietly undercut your authority. Swapping hedged language for direct statements measurably changes perceived competence.</p></div>
+      <div class="princ-card"><h3>Audience connection</h3><p>Rhetorical questions, direct address, and relatable framing pull a passive listener into active engagement.</p></div>
+      <div class="princ-card"><h3>Handling interjections (pitch mode)</h3><p>In real pitches and interviews, being interrupted is normal — investors and interviewers probe live. The skill being trained is composure under interruption: answering the actual question asked, briefly, then steering back to your core point rather than losing your thread or restarting from scratch.</p></div>
+    </div>
+  </div>
+
+</main>
+
+<footer class="pills" id="footer-pills"></footer>
+
+<script>
+const TOPICS = [
+  "Should companies be required to give employees four-day work weeks?",
+  "Is social media doing more harm than good to society?",
+  "Should college education be free for everyone?",
+  "Is it better to specialize deeply in one skill or be a generalist?",
+  "Should cities ban private cars from their downtown cores?",
+  "Is remote work better for productivity than working in an office?",
+  "Should there be a legal minimum amount of vacation time worldwide?",
+  "Is competition or collaboration more important for innovation?",
+  "Should schools replace grades with a pass/fail system?",
+  "Is it ethical for companies to use AI to screen job applicants?",
+  "Should voting be mandatory in democratic countries?",
+  "Is failure a necessary part of success, or is it overrated as a teacher?",
+  "Should there be a maximum wage as well as a minimum wage?",
+  "Is it better to live in a big city or a small town?",
+  "Should social media platforms verify the identity of every user?",
+  "Is tourism good or bad for the places tourists visit?",
+  "Should professional athletes be paid more than teachers or doctors?",
+  "Is it possible to be truly objective when telling a story?",
+  "Should parents limit how much screen time their children have?",
+  "Is it better to rent or to own a home?",
+  "Should countries prioritize economic growth or environmental protection?",
+  "Is it ethical to bring children into a world facing climate change?",
+  "Should companies be allowed to monitor employees' productivity through software?",
+  "Is nuclear energy the best solution to the climate crisis?",
+  "Should there be an age limit for holding political office?",
+  "Is it better to have many casual friends or a few close ones?",
+  "Should homework be abolished in schools?",
+  "Is space exploration a good use of public money?",
+  "Should genetic engineering of human embryos be allowed?",
+  "Is it more important to be liked or to be respected?",
+  "Should public transportation be free in every city?",
+  "Is patriotism a virtue or a limitation?",
+  "Should companies disclose the environmental impact of every product?",
+  "Is it better to specialize your career early or explore broadly first?",
+  "Should university degrees matter less than skills in hiring?",
+  "Is it ethical to eat meat given modern alternatives?",
+  "Should there be term limits for all elected officials?",
+  "Is it better to make decisions with data or with intuition?",
+  "Should companies be legally required to offer mental health days?",
+  "Is it more valuable to be right or to be kind?",
+  "Should artificial intelligence be regulated like a public utility?",
+  "Is it better to take a stable job or pursue an uncertain passion?",
+  "Should children be taught financial literacy as a required school subject?",
+  "Is privacy a right that should never be traded for convenience?",
+  "Should professional sports allow performance-enhancing technology if it's available to all?",
+  "Is it possible to have too much personal freedom?",
+  "Should billionaires be allowed to exist in a fair society?",
+  "Is it better to travel to many places briefly or few places deeply?",
+  "Should news organizations be required to separate opinion from fact more strictly?",
+  "Is ambition, on balance, a positive or negative trait?"
+];
+
+const PITCH_TOPICS = [
+  "Pitch a subscription box for pet toys to a skeptical investor.",
+  "Pitch an app that matches freelancers with same-day gigs.",
+  "Pitch a reusable packaging service for e-commerce brands.",
+  "Pitch a fitness app that pairs strangers as accountability partners.",
+  "Pitch a budgeting tool built specifically for freelancers with irregular income.",
+  "Pitch a marketplace connecting retired professionals with startups needing mentors.",
+  "Pitch a smart home device that cuts energy bills automatically.",
+  "Pitch a meal-kit service using only surplus food from local grocers.",
+  "Pitch a platform that lets small businesses share warehouse space.",
+  "Pitch an AI tool that summarizes and prioritizes a manager's inbox.",
+  "Pitch a childcare co-op app for busy neighborhoods.",
+  "Pitch a used-furniture resale platform focused on speed and trust.",
+  "Pitch a language-learning app built around real phone conversations, not lessons.",
+  "Pitch a service that helps small landlords manage maintenance requests.",
+  "Pitch a corporate wellness program built around micro-breaks, not gym memberships.",
+  "Pitch a local delivery network run entirely by retirees with free time.",
+  "Pitch a tool that helps job seekers practice interviews with real feedback.",
+  "Pitch a plant-based meal delivery service targeted at new parents.",
+  "Pitch a community bulletin app to replace neighborhood Facebook groups.",
+  "Pitch a device that helps elderly people age safely at home."
+];
+
+const interjectionQuestions = [
+  "Sorry to interrupt — what's your actual customer acquisition cost?",
+  "Hold on — how is this different from what's already on the market?",
+  "Quick question — what happens if your biggest competitor copies this in six months?",
+  "Wait — who exactly is paying for this, and why would they switch?",
+  "Let me stop you there — what's your path to profitability?",
+  "One thing — have you actually validated this with real customers yet?",
+  "Sorry, but — what's stopping a bigger company from just building this themselves?",
+  "Quick interruption — what's your biggest risk right now?",
+  "Hold on a second — how big is this market, really?",
+  "Let me jump in — why should I trust your team to execute on this?",
+  "Wait, back up — what does this cost to actually build and run?",
+  "Sorry — what's your unfair advantage here?",
+  "Quick one — how do you plan to reach your first hundred customers?",
+  "Let me stop you — what happens to this business in a recession?",
+  "Hold on — what's the one number that tells us this is working?"
+];
+
+const speakingPrinciples = `You are an expert public speaking coach. You give feedback grounded in real, well-established principles from public speaking research and communication psychology, such as:
+- Filler word usage (um, uh, like, so, you know) and its effect on perceived confidence
+- Pacing and words-per-minute (ideal conversational range is roughly 120-160 wpm; too fast reads as nervous, too slow loses engagement)
+- Structure (clear opening/hook, body with a logical throughline, a real conclusion — not just trailing off)
+- Use of concrete examples/stories vs. abstract claims
+- Vocal variety and emphasis (as inferable from transcript patterns like repetition, hedging language)
+- Confidence markers vs. hedging language ("I think maybe", "sort of", "I guess")
+- Audience connection (rhetorical questions, direct address, relatable framing)
+- Conciseness vs. rambling / circling back on the same point
+
+You will be given a topic and a transcript of someone practicing a short speech on that topic. Give specific, actionable feedback — not generic praise. Quote or reference specific moments from their transcript where useful. Be encouraging but honest; this is a practice tool for someone actively trying to improve.
+
+Respond ONLY with valid JSON, no markdown fences, no preamble, in this exact shape:
+{
+  "score": <integer 1-10, overall impression>,
+  "strengths": ["short specific point", "short specific point"],
+  "improvements": ["short specific point", "short specific point", "short specific point"],
+  "summary": "2-4 sentence overall narrative summary, written directly to the speaker as 'you'"
+}`;
+
+const pitchPrinciples = `You are an expert pitch coach who trains founders on business pitching and handling live interjections from investors/interviewers, grounded in real principles:
+- Structure (hook, problem, solution, market size, ask — clear and concise, not rambling)
+- Confidence markers vs. hedging language
+- Concrete numbers/evidence over vague claims
+- Filler words and pacing (120-160 wpm conversational range)
+- COMPOSURE UNDER INTERRUPTION: the speaker was interrupted at points with tough questions (marked as [INTERJECTION: ...] in the transcript). Evaluate specifically how well they handled being cut off — did they answer the actual question briefly, stay composed, and pivot back to their pitch, or did they get flustered, ignore the question, or lose their thread entirely?
+
+You will be given a pitch topic and a transcript that includes interjection markers showing where the speaker was interrupted with a question. Give specific, actionable feedback on both the pitch content/delivery AND specifically on interjection-handling. Be encouraging but honest.
+
+Respond ONLY with valid JSON, no markdown fences, no preamble, in this exact shape:
+{
+  "score": <integer 1-10, overall impression>,
+  "strengths": ["short specific point", "short specific point"],
+  "improvements": ["short specific point", "short specific point", "short specific point"],
+  "summary": "2-4 sentence overall narrative summary, written directly to the speaker as 'you', mentioning how they handled interjections specifically"
+}`;
+
+let currentMode = 'speaking'; // 'speaking' | 'pitch'
+let currentTopic = "";
+let mediaRecorder, audioChunks = [], audioBlob = null, audioURL = null;
+let recognition = null, finalTranscript = "";
+let startTime = 0, timerInterval = null;
+let audioContext, analyser, dataArray, animationId, stream;
+let interjections = []; // {atSec, question}
+let lastInterjectTime = 0;
+let usedInterjections = [];
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-btn-speaking').classList.toggle('active', mode === 'speaking');
+  document.getElementById('mode-btn-pitch').classList.toggle('active', mode === 'pitch');
+  document.getElementById('mode-btn-pitch').classList.toggle('pitch-active', mode === 'pitch');
+  document.getElementById('mode-tag-text').textContent = mode === 'speaking'
+    ? 'Public speaking · Random topic'
+    : 'Business pitch · Live interjections';
+  document.getElementById('prompt-label-text').textContent = mode === 'speaking' ? 'Your topic' : 'Your pitch scenario';
+  pickTopic();
+}
+document.getElementById('mode-btn-speaking').onclick = () => setMode('speaking');
+document.getElementById('mode-btn-pitch').onclick = () => setMode('pitch');
+
+function pickTopic() {
+  const list = currentMode === 'speaking' ? TOPICS : PITCH_TOPICS;
+  currentTopic = list[Math.floor(Math.random() * list.length)];
+  document.getElementById('topic-text').textContent = currentTopic;
+}
+pickTopic();
+document.getElementById('new-topic-pill') && (document.getElementById('new-topic-pill').onclick = pickTopic);
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('footer-pills').style.display = (id === 'screen-intro') ? 'flex' : 'none';
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  if (id === 'screen-intro' || id === 'screen-processing' || id === 'screen-feedback') {
+    document.getElementById('nav-practice').classList.add('active');
+  } else if (id === 'screen-history' || id === 'screen-history-detail') {
+    document.getElementById('nav-history').classList.add('active');
+  } else if (id === 'screen-principles') {
+    document.getElementById('nav-principles').classList.add('active');
+  }
+}
+
+function renderFooter() {
+  const footer = document.getElementById('footer-pills');
+  footer.innerHTML = `
+    <div class="pill">Prep time · <b>your own pace</b></div>
+    <div class="pill btn" id="new-topic-pill">🔀 New topic</div>
+  `;
+  document.getElementById('new-topic-pill').onclick = pickTopic;
+}
+renderFooter();
+
+document.getElementById('nav-practice').onclick = () => showScreen('screen-intro');
+document.getElementById('nav-principles').onclick = () => showScreen('screen-principles');
+document.getElementById('nav-history').onclick = async () => {
+  showScreen('screen-history');
+  await loadHistory();
+};
+document.getElementById('back-to-history').onclick = () => showScreen('screen-history');
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+async function startRecording() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    document.getElementById('rec-hint').textContent = "Microphone access is needed to record. Please allow it and try again.";
+    return;
+  }
+
+  audioChunks = [];
+  finalTranscript = "";
+  interjections = [];
+  usedInterjections = [];
+  lastInterjectTime = 0;
+  document.getElementById('interject-count').textContent = '';
+  document.getElementById('interject-banner').classList.remove('show');
+
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+  mediaRecorder.onstop = () => {
+    audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    audioURL = URL.createObjectURL(audioBlob);
+  };
+  mediaRecorder.start();
+
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioContext.createMediaStreamSource(stream);
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 64;
+  source.connect(analyser);
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  animateBars();
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + ' ';
+          if (currentMode === 'pitch') maybeInterject();
+        }
+      }
+    };
+    recognition.onerror = () => {};
+    recognition.start();
+  }
+
+  startTime = Date.now();
+  document.getElementById('timer').classList.add('show');
+  timerInterval = setInterval(() => {
+    document.getElementById('timer').textContent = formatTime((Date.now() - startTime) / 1000);
+  }, 250);
+
+  const btn = document.getElementById('rec-btn');
+  btn.classList.remove('idle');
+  btn.classList.add('recording');
+  document.getElementById('rec-hint').textContent = currentMode === 'speaking'
+    ? "Recording — press again when you're done."
+    : "Recording — expect to be interrupted. Press again when you're done.";
+}
+
+function maybeInterject() {
+  const nowSec = (Date.now() - startTime) / 1000;
+  if (nowSec - lastInterjectTime < 12) return; // minimum gap between interjections
+  if (nowSec < 8) return; // let them get started first
+  if (Math.random() > 0.45) return; // don't interject on every sentence
+
+  let pool = interjectionQuestions.filter(q => !usedInterjections.includes(q));
+  if (pool.length === 0) { pool = interjectionQuestions; usedInterjections = []; }
+  const question = pool[Math.floor(Math.random() * pool.length)];
+  usedInterjections.push(question);
+  lastInterjectTime = nowSec;
+  interjections.push({ atSec: Math.round(nowSec), question });
+  finalTranscript += ` [INTERJECTION: ${question}] `;
+
+  const banner = document.getElementById('interject-banner');
+  document.getElementById('interject-text').textContent = question;
+  banner.classList.add('show');
+  document.getElementById('interject-count').textContent = `Interjections so far: ${interjections.length}`;
+  setTimeout(() => banner.classList.remove('show'), 4500);
+
+  if ('speechSynthesis' in window) {
+    try {
+      const utter = new SpeechSynthesisUtterance(question);
+      utter.rate = 1.02;
+      speechSynthesis.speak(utter);
+    } catch (e) {}
+  }
+}
+
+function animateBars() {
+  analyser.getByteFrequencyData(dataArray);
+  const bars = document.querySelectorAll('#bars span');
+  bars.forEach((bar, i) => {
+    const v = dataArray[i * 3] || 0;
+    bar.style.height = Math.max(6, (v / 255) * 28) + 'px';
+  });
+  animationId = requestAnimationFrame(animateBars);
+}
+
+async function stopRecording() {
+  mediaRecorder.stop();
+  if (recognition) { try { recognition.stop(); } catch(e) {} }
+  clearInterval(timerInterval);
+  cancelAnimationFrame(animationId);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  if (audioContext) audioContext.close();
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+
+  const btn = document.getElementById('rec-btn');
+  btn.classList.remove('recording');
+  document.getElementById('interject-banner').classList.remove('show');
+
+  await new Promise(r => setTimeout(r, 300));
+
+  showScreen('screen-processing');
+  document.getElementById('processing-text').textContent = 'Preparing your transcript…';
+  await new Promise(r => setTimeout(r, 400));
+
+  await getFeedback();
+}
+
+document.getElementById('rec-btn').onclick = () => {
+  const btn = document.getElementById('rec-btn');
+  if (btn.classList.contains('recording')) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+};
+
+function wordCount(str) {
+  return (str.trim().match(/\S+/g) || []).length;
+}
+function fillerCount(str) {
+  const fillers = ["um","uh","like","so","you know","basically","actually","literally","i mean"];
+  const lower = str.toLowerCase();
+  let count = 0;
+  fillers.forEach(f => {
+    const re = new RegExp(`\\b${f.replace(' ', '\\s')}\\b`, 'g');
+    const m = lower.match(re);
+    if (m) count += m.length;
+  });
+  return count;
+}
+
+async function getFeedback() {
+  const transcript = finalTranscript.trim();
+  const durationSec = (Date.now() - startTime) / 1000;
+  const wc = wordCount(transcript.replace(/\[INTERJECTION:[^\]]*\]/g, ''));
+  const wpm = durationSec > 5 ? Math.round(wc / (durationSec / 60)) : 0;
+  const fillers = fillerCount(transcript);
+
+  let feedback = null;
+  let errorMsg = null;
+
+  if (!transcript) {
+    errorMsg = "We didn't catch a transcript — either speech recognition isn't supported in this browser (Safari/iOS doesn't support it — try Chrome), or nothing was heard. You can still listen back to your audio below.";
+  } else {
+    errorMsg = "AI feedback isn't included in this offline version yet — you're seeing your stats, transcript and audio only.";
+  }
+
+  renderFeedback({ transcript, durationSec, wpm, fillers, feedback, errorMsg });
+  showScreen('screen-feedback');
+  if (transcript) saveSession({ transcript, durationSec, wpm, fillers, feedback, interjectionsCount: interjections.length });
+}
+
+function formatTranscriptHTML(transcript) {
+  return (transcript || 'No transcript captured.')
+    .replace(/\[INTERJECTION:\s*([^\]]*)\]/g, '<span class="interjection-line">🔀 Interjection: $1</span>');
+}
+
+function renderFeedback({ transcript, durationSec, wpm, fillers, feedback, errorMsg }) {
+  document.getElementById('playback').src = audioURL;
+  document.getElementById('transcript-out').innerHTML = formatTranscriptHTML(transcript);
+
+  const extraStat = currentMode === 'pitch'
+    ? `<div class="stat"><div class="num">${interjections.length}</div><div class="lbl">Interjections</div></div>`
+    : '';
+
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat"><div class="num">${formatTime(durationSec)}</div><div class="lbl">Duration</div></div>
+    <div class="stat"><div class="num">${wpm || '—'}</div><div class="lbl">Words / min</div></div>
+    <div class="stat"><div class="num">${fillers}</div><div class="lbl">Filler words</div></div>
+    <div class="stat"><div class="num">${feedback ? feedback.score + '/10' : '—'}</div><div class="lbl">Overall score</div></div>
+    ${extraStat}
+  `;
+
+  const out = document.getElementById('feedback-out');
+  out.innerHTML = '';
+
+  if (errorMsg) {
+    const div = document.createElement('div');
+    div.className = 'error-box';
+    div.textContent = errorMsg;
+    out.appendChild(div);
+  }
+
+  if (feedback) {
+    const summary = document.createElement('div');
+    summary.className = 'fb-section';
+    summary.innerHTML = `<div class="fb-body">${feedback.summary || ''}</div>`;
+    out.appendChild(summary);
+
+    if (feedback.strengths && feedback.strengths.length) {
+      const s = document.createElement('div');
+      s.className = 'fb-section good';
+      s.innerHTML = `<h3>What worked</h3><ul>${feedback.strengths.map(x => `<li>${x}</li>`).join('')}</ul>`;
+      out.appendChild(s);
+    }
+    if (feedback.improvements && feedback.improvements.length) {
+      const i = document.createElement('div');
+      i.className = 'fb-section improve';
+      i.innerHTML = `<h3>To improve</h3><ul>${feedback.improvements.map(x => `<li>${x}</li>`).join('')}</ul>`;
+      out.appendChild(i);
+    }
+  }
+}
+
+document.getElementById('btn-again').onclick = () => {
+  pickTopic();
+  document.getElementById('timer').classList.remove('show');
+  document.getElementById('timer').textContent = '00:00';
+  document.getElementById('rec-hint').textContent = "Take a moment. Press when you're ready.";
+  document.querySelectorAll('#bars span').forEach(b => b.style.height = '6px');
+  document.getElementById('interject-count').textContent = '';
+  showScreen('screen-intro');
+};
+
+document.getElementById('btn-download').onclick = async () => {
+  if (!audioBlob) return;
+  const a = document.createElement('a');
+  a.href = audioURL;
+  a.download = `podium-practice-${Date.now()}.webm`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+/* ---------------- History ---------------- */
+
+function getLocalSessions() {
+  try {
+    return JSON.parse(localStorage.getItem('podium_sessions') || '[]');
+  } catch (e) { return []; }
+}
+
+async function loadHistory() {
+  const list = document.getElementById('history-list');
+  const sessions = getLocalSessions().slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 50);
+  if (!sessions || sessions.length === 0) {
+    list.innerHTML = '<div class="hist-empty">No sessions yet — finish a practice round and it\'ll show up here.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  sessions.forEach(s => {
+      const date = new Date(s.createdAt || Date.now());
+      const item = document.createElement('div');
+      item.className = 'hist-item';
+      const modeLabel = s.mode === 'pitch' ? '<span class="mode-chip pitch">Pitch</span>' : '<span class="mode-chip speaking">Speaking</span>';
+      item.innerHTML = `
+        <div class="hist-item-top">
+          <div class="hist-item-topic">${modeLabel} ${s.topic || 'Practice session'}</div>
+          <div class="hist-item-date">${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+        </div>
+        <div class="hist-item-meta">
+          <span>Score <b>${s.score != null ? s.score + '/10' : '—'}</b></span>
+          <span>${s.wpm || '—'} wpm</span>
+          <span>${s.fillers != null ? s.fillers : '—'} fillers</span>
+          ${s.mode === 'pitch' ? `<span>${s.interjectionsCount || 0} interjections</span>` : ''}
+        </div>
+      `;
+      item.onclick = () => showHistoryDetail(s);
+      list.appendChild(item);
+  });
+}
+
+function showHistoryDetail(s) {
+  document.getElementById('detail-topic').textContent = s.topic || 'Practice session';
+  document.getElementById('detail-transcript-out').innerHTML = formatTranscriptHTML(s.transcript);
+
+  const extraStat = s.mode === 'pitch'
+    ? `<div class="stat"><div class="num">${s.interjectionsCount || 0}</div><div class="lbl">Interjections</div></div>`
+    : '';
+  document.getElementById('detail-stats-row').innerHTML = `
+    <div class="stat"><div class="num">${formatTime(s.durationSec || 0)}</div><div class="lbl">Duration</div></div>
+    <div class="stat"><div class="num">${s.wpm || '—'}</div><div class="lbl">Words / min</div></div>
+    <div class="stat"><div class="num">${s.fillers != null ? s.fillers : '—'}</div><div class="lbl">Filler words</div></div>
+    <div class="stat"><div class="num">${s.score != null ? s.score + '/10' : '—'}</div><div class="lbl">Overall score</div></div>
+    ${extraStat}
+  `;
+
+  const out = document.getElementById('detail-feedback-out');
+  out.innerHTML = '';
+  if (s.summary) {
+    const summary = document.createElement('div');
+    summary.className = 'fb-section';
+    summary.innerHTML = `<div class="fb-body">${s.summary}</div>`;
+    out.appendChild(summary);
+  }
+  if (s.strengths && s.strengths.length) {
+    const el = document.createElement('div');
+    el.className = 'fb-section good';
+    el.innerHTML = `<h3>What worked</h3><ul>${s.strengths.map(x => `<li>${x}</li>`).join('')}</ul>`;
+    out.appendChild(el);
+  }
+  if (s.improvements && s.improvements.length) {
+    const el = document.createElement('div');
+    el.className = 'fb-section improve';
+    el.innerHTML = `<h3>To improve</h3><ul>${s.improvements.map(x => `<li>${x}</li>`).join('')}</ul>`;
+    out.appendChild(el);
+  }
+  if (!s.summary && !(s.strengths && s.strengths.length)) {
+    out.innerHTML = '<div class="hist-empty">No AI feedback was generated for this session.</div>';
+  }
+
+  showScreen('screen-history-detail');
+}
+
+async function saveSession({ transcript, durationSec, wpm, fillers, feedback, interjectionsCount }) {
+  try {
+    const sessions = getLocalSessions();
+    sessions.push({
+      mode: currentMode,
+      topic: currentTopic,
+      transcript,
+      durationSec,
+      wpm,
+      fillers,
+      interjectionsCount: interjectionsCount || 0,
+      score: feedback ? feedback.score : null,
+      strengths: feedback ? feedback.strengths : [],
+      improvements: feedback ? feedback.improvements : [],
+      summary: feedback ? feedback.summary : null,
+      createdAt: Date.now()
+    });
+    // keep storage bounded
+    while (sessions.length > 200) sessions.shift();
+    localStorage.setItem('podium_sessions', JSON.stringify(sessions));
+  } catch (err) {
+    // saving history is a nice-to-have; never block the feedback screen on it
+  }
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>

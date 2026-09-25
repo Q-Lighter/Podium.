@@ -1,0 +1,11 @@
+{
+  "name": "Podium — Speaking Practice",
+  "short_name": "Podium",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0D0E12",
+  "theme_color": "#0D0E12",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
